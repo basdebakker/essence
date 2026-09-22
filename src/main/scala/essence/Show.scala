@@ -10,16 +10,17 @@ trait Show[F[_]] {
 
 object Show {
 
+  def apply[F[_]](using sf: Show[F]): Show[F] = sf
+
   def show[F[_]: Show, A](value: F[A]): String =
-    summon[Show[F]].show(value)
+    Show[F].show(value)
 
   given Show[Id] {
     def show[A](value: Id[A]): String =
       value.toString
   }
 
-  type Error[A] = Either[String, A]
-  given Show[Error] {
+  given Show[[A] =>> Either[String, A]] {
     def show[A](value: Either[String, A]): String =
       value.fold(
         l => s"Failure: $l",

@@ -139,6 +139,66 @@ class TestMain {
     runTest(interpreter)
   }
 
+  @Test
+  def testStateAndSeqAndError(): Unit = {
+    type MyState[A] = State[Int, A]
+    type MySeq[A] = SeqT[MyState, A]
+    type Error[A] = EitherT[MySeq, String, A]
+    val interpreter = new Interpreter[Error] {
+      override def error(msg: String): Error[Value] = EitherT.leftT(msg)
+      override def tick: Error[Unit] = EitherT.liftF(SeqT.liftM(State.modify(_ + 1)))
+      override def fetch: Error[Int] = EitherT.liftF(SeqT.liftM(State.get))
+      override def ambiguous(alt1: Error[Value], alt2: Error[Value]): Error[Value] =
+        EitherT(alt1.value ++ alt2.value)
+    }
+    runTest(interpreter)
+  }
+
+  @Test
+  def testStateAndErrorAndSeq(): Unit = {
+    type MyState[A] = State[Int, A]
+    type Error[A] = EitherT[MyState, String, A]
+    type MySeq[A] = SeqT[Error, A]
+    val interpreter = new Interpreter[MySeq] {
+      override def error(msg: String): MySeq[Value] = SeqT.liftM(EitherT.leftT(msg))
+      override def tick: MySeq[Unit] = SeqT.liftM(EitherT.liftF(StateT.modify(_ + 1)))
+      override def fetch: MySeq[Int] = SeqT.liftM(EitherT.liftF(StateT.get))
+      override def ambiguous(alt1: MySeq[Value], alt2: MySeq[Value]): MySeq[Value] =
+        alt1 ++ alt2
+    }
+    runTest(interpreter)
+  }
+
+  @Test
+  def testErrorAndSeqAndState(): Unit = {
+    type Error[A] = Either[String, A]
+    type MySeq[A] = SeqT[Error, A]
+    type MyState[A] = StateT[MySeq, Int, A]
+    val interpreter = new Interpreter[MyState] {
+      override def error(msg: String): MyState[Value] = StateT.liftF(SeqT.liftM(Left(msg)))
+      override def tick: MyState[Unit] = StateT.modify(_ + 1)
+      override def fetch: MyState[Int] = StateT.get
+      override def ambiguous(alt1: MyState[Value], alt2: MyState[Value]): MyState[Value] =
+        StateT.applyF(alt1.runF ++ alt2.runF)
+    }
+    runTest(interpreter)
+  }
+
+  @Test
+  def testErrorAndStateAndSeq(): Unit = {
+    type Error[A] = Either[String, A]
+    type MyState[A] = StateT[Error, Int, A]
+    type MySeq[A] = SeqT[MyState, A]
+    val interpreter = new Interpreter[MySeq] {
+      override def error(msg: String): MySeq[Value] = SeqT.liftM(StateT.liftF(Left(msg)))
+      override def tick: MySeq[Unit] = SeqT.liftM(StateT.modify(_ + 1))
+      override def fetch: MySeq[Int] = SeqT.liftM(StateT.get)
+      override def ambiguous(alt1: MySeq[Value], alt2: MySeq[Value]): MySeq[Value] =
+        alt1 ++ alt2
+    }
+    runTest(interpreter)
+  }
+
   private def allTerms: Seq[Term] = {
     import Term.*
     Seq(

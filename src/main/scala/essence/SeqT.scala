@@ -7,17 +7,17 @@ final case class SeqT[M[_]: Monad, A](value: M[Seq[A]]) {
 
   def ++(suffix: SeqT[M, A]): SeqT[M, A] = SeqT(value.flatMap(s => suffix.value.map(s ++ _)))
 
-  def mkString(sep: String): M[String] = summon[Monad[M]].map(value)(_.mkString(sep))
+  def mkString(sep: String): M[String] = Monad[M].map(value)(_.mkString(sep))
 }
 
 object SeqT {
 
-  def liftM[M[_]: Monad, A](ma: M[A]): SeqT[M, A] = SeqT(summon[Monad[M]].map(ma)(Seq(_)))
+  def liftM[M[_]: Monad, A](ma: M[A]): SeqT[M, A] = SeqT(Monad[M].map(ma)(Seq(_)))
 
   given [M[_]: Monad] => Monad[[A] =>> SeqT[M, A]] {
 
     override def pure[A](a: A): SeqT[M, A] = {
-      val ma = summon[Monad[M]].pure(a)
+      val ma = Monad[M].pure(a)
       liftM(ma)
     }
 
