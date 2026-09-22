@@ -5,6 +5,8 @@ import cats.implicits.*
 
 final case class SeqT[M[_]: Monad, A](value: M[Seq[A]]) {
 
+  def ++(suffix: SeqT[M, A]): SeqT[M, A] = SeqT(value.flatMap(s => suffix.value.map(s ++ _)))
+
   def mkString(sep: String): M[String] = summon[Monad[M]].map(value)(_.mkString(sep))
 }
 

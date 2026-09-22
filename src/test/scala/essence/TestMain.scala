@@ -82,8 +82,7 @@ class TestMain {
     type MySeq[A] = SeqT[Error, A]
     val interpreter = new Interpreter[MySeq] {
       override def error(msg: String): MySeq[Value] = SeqT.liftM(Left(msg))
-      override def ambiguous(alt1: MySeq[Value], alt2: MySeq[Value]): MySeq[Value] =
-        SeqT(alt1.value.flatMap(s1 => alt2.value.map(s1 ++ _)))
+      override def ambiguous(alt1: MySeq[Value], alt2: MySeq[Value]): MySeq[Value] = alt1 ++ alt2
     }
     runTest(interpreter)
   }
@@ -96,6 +95,18 @@ class TestMain {
       override def fetch: MyState[Int] = StateT.get
       override def ambiguous(alt1: MyState[Value], alt2: MyState[Value]): MyState[Value] =
         StateT.applyF(alt1.runF ++ alt2.runF)
+    }
+    runTest(interpreter)
+  }
+
+  @Test
+  def testStateAndSeq(): Unit = {
+    type MyState[A] = State[Int, A]
+    type MySeq[A] = SeqT[MyState, A]
+    val interpreter = new Interpreter[MySeq] {
+      override def tick: MySeq[Unit] = SeqT.liftM(State.modify(_ + 1))
+      override def fetch: MySeq[Int] = SeqT.liftM(State.get)
+      override def ambiguous(alt1: MySeq[Value], alt2: MySeq[Value]): MySeq[Value] = alt1 ++ alt2
     }
     runTest(interpreter)
   }
