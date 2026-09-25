@@ -3,8 +3,6 @@ package essence
 import cats.*
 import cats.syntax.all.*
 
-import scala.annotation.tailrec
-
 object Interpreter {
 
   type Name = String
@@ -31,7 +29,7 @@ open class Interpreter[M[_]: Monad] {
     case Func(func: Value => M[Value])
   }
 
-  private type Environment = List[(Name, Value)]
+  private type Environment = List[(name: Name, value: Value)]
 
   def interp(term: Term, environment: Environment = Nil): M[Value] = term match {
     case Term.Variable(name) =>
@@ -63,25 +61,22 @@ open class Interpreter[M[_]: Monad] {
       ambiguous(interp(alt1, environment), interp(alt2, environment))
   }
 
-  @tailrec
-  private def lookup(name: Name, environment: Environment): M[Value] = environment match {
-    case Nil         => error(s"Unbound variable: $name")
-    case (n, v) :: e => if n == name then unitM(v) else lookup(name, e)
-  }
+  private def lookup(name: Name, environment: Environment): M[Value] =
+    environment.find(_.name == name).fold(error(s"Unbound variable: $name"))(v => unitM(v.value))
 
   private def add(left: Value, right: Value): M[Value] = (left, right) match {
-    case (Value.Number(left), Value.Number(right)) =>
+    case (Value.Number(l), Value.Number(r)) =>
       for {
         _ <- tick
-      } yield Value.Number(left + right)
+      } yield Value.Number(l + r)
     case _ => error(s"Should be numbers: $left,$right")
   }
 
   private def apply(func: Value, arg: Value): M[Value] = func match {
-    case Value.Func(func) =>
+    case Value.Func(f) =>
       for {
         _ <- tick
-        r <- func.apply(arg)
+        r <- f(arg)
       } yield r
     case _ => error(s"Should be function: $func")
   }
